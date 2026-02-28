@@ -6,6 +6,8 @@ A self-hosted, zero-trust infrastructure running on a single Hetzner Cloud VPS (
 
 Four isolated application stacks behind a hardened reverse proxy, with centralized identity management and self-hosted VPN for administration.
 
+![Security Architecture Diagram](docs/architecture.jpg)
+
 | Stack | Service | Purpose |
 |-------|---------|---------|
 | **Traefik** | Traefik v2.11 + Socket Proxy | TLS termination, routing, Let's Encrypt |
@@ -116,11 +118,33 @@ All cross-stack connectivity tests pass (blocked):
 ## Documentation
 
 - [docs/deployment-plan.md](docs/deployment-plan.md) — Full deployment plan with phase-by-phase instructions
-- [docs/architecture.html](docs/architecture.html) — Visual security architecture diagram
 
 ## Status
 
 Deployed and operational. Ongoing hardening and integration tasks tracked separately.
+
+## Third-Party Software Licenses
+
+| Software | Version | License | Project |
+|----------|---------|---------|---------|
+| [Traefik](https://github.com/traefik/traefik) | v2.11 | MIT | Reverse proxy, TLS termination |
+| [Keycloak](https://github.com/keycloak/keycloak) | 26.x | Apache-2.0 | Identity, SSO, MFA |
+| [Ghost](https://github.com/TryGhost/Ghost) | 5.x | MIT | Website / CMS |
+| [Nextcloud](https://github.com/nextcloud/server) | 30.x | AGPL-3.0 | Files, calendar, contacts |
+| [Mailcow](https://github.com/mailcow/mailcow-dockerized) | latest | GPL-3.0 | Email, webmail, antispam |
+| [Headscale](https://github.com/juanfont/headscale) | 0.26 | BSD-3-Clause | Self-hosted VPN control server |
+| [PostgreSQL](https://github.com/postgres/postgres) | 16 | PostgreSQL License | Relational database |
+| [MariaDB](https://github.com/MariaDB/server) | 11 | GPL-2.0 | Relational database |
+| [Redis](https://github.com/redis/redis) | 7 | BSD-3-Clause * | In-memory cache |
+| [oauth2-proxy](https://github.com/oauth2-proxy/oauth2-proxy) | v7.6 | MIT | Forward authentication proxy |
+| [docker-socket-proxy](https://github.com/Tecnativa/docker-socket-proxy) | latest | Apache-2.0 | Read-only Docker API proxy |
+| [Falco](https://github.com/falcosecurity/falco) | latest | Apache-2.0 | Runtime anomaly detection |
+| [Node Exporter](https://github.com/prometheus/node_exporter) | latest | Apache-2.0 | System metrics |
+| [Trivy](https://github.com/aquasecurity/trivy) | latest | Apache-2.0 | Vulnerability scanning |
+| [Docker Engine](https://github.com/moby/moby) | 27.x | Apache-2.0 | Container runtime |
+| [Let's Encrypt](https://letsencrypt.org/) | — | [ISRG](https://www.abetterinternet.org/) | TLS certificates (free, automated) |
+
+\* Redis versions ≥ 7.4 use a dual RSALv2/SSPLv1 license. Earlier versions (used here) are BSD-3-Clause.
 
 ## License
 
