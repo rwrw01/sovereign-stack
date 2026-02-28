@@ -1,8 +1,8 @@
-# Soevereine Infrastructuur athide.nl — Deployment Plan
+# Soevereine Infrastructuur domeinnaam.nl — Deployment Plan
 
 ## Context
 
-Ralph wil een zakelijke, soevereine omgeving op een Hetzner VPS met vier kernservices: identity/MFA (Keycloak), samenwerking (Nextcloud), website (Ghost) en e-mail (Mailcow). De huidige cax21 (8GB RAM) wordt geüpgraded naar een **cax31 (16GB RAM, 8 vCPU, 160GB disk)** om alle services comfortabel te draaien.
+Dee organisatie wil een een zakelijke, soevereine omgeving op een Hetzner VPS met vier kernservices: identity/MFA (Keycloak), samenwerking (Nextcloud), website (Ghost) en e-mail (Mailcow). De huidige cax21 (8GB RAM) wordt geüpgraded naar een **cax31 (16GB RAM, 8 vCPU, 160GB disk)** om alle services comfortabel te draaien.
 
 **Architectuurprincipes:** Zero Trust, Assume Breach, Defense in Depth. Elke service draait in zijn eigen geïsoleerde Docker Compose stack met eigen secrets, eigen interne netwerken, en een minimaal aanvalsoppervlak. Een breach in één service mag geen laterale beweging naar andere services mogelijk maken.
 
@@ -41,14 +41,14 @@ Strikte scheiding tussen wat het internet mag zien en wat alleen de beheerder ma
 
 | Service / Pad | Toegang | Reden |
 |---------------|---------|-------|
-| Ghost website (`athide.nl`) | **Publiek** | SEO, lezers |
-| Ghost admin (`athide.nl/ghost`) | **Headscale VPN + Keycloak MFA + Ghost auth** | Triple lock |
-| Nextcloud (`cloud.athide.nl`) | **Publiek** | Overal bij bestanden |
-| Keycloak login (`auth.athide.nl/realms/*`) | **Publiek** | OIDC flow voor Nextcloud |
-| Keycloak admin (`auth.athide.nl/admin/*`) | **Headscale VPN ONLY** | Configuratie = kritiek |
-| Mailcow webmail (`mail.athide.nl`) | **Publiek** | SOGo webmail voor gebruikers |
-| Mailcow admin (`mail.athide.nl/admin`) | **Headscale VPN ONLY** | Mailbox beheer = kritiek |
-| Traefik dashboard (`traefik.athide.nl`) | **Headscale VPN ONLY** | Infra-inzicht = privé |
+| Ghost website (`domeinnaam.nl`) | **Publiek** | SEO, lezers |
+| Ghost admin (`domeinnaam.nl/ghost`) | **Headscale VPN + Keycloak MFA + Ghost auth** | Triple lock |
+| Nextcloud (`cloud.domeinnaam.nl`) | **Publiek** | Overal bij bestanden |
+| Keycloak login (`auth.domeinnaam.nl/realms/*`) | **Publiek** | OIDC flow voor Nextcloud |
+| Keycloak admin (`auth.domeinnaam.nl/admin/*`) | **Headscale VPN ONLY** | Configuratie = kritiek |
+| Mailcow webmail (`mail.domeinnaam.nl`) | **Publiek** | SOGo webmail voor gebruikers |
+| Mailcow admin (`mail.domeinnaam.nl/admin`) | **Headscale VPN ONLY** | Mailbox beheer = kritiek |
+| Traefik dashboard (`traefik.domeinnaam.nl`) | **Headscale VPN ONLY** | Infra-inzicht = privé |
 | Mail protocols (25, 587, 993) | **Publiek** | Mail moet werken |
 
 **Resultaat:** Een portscan op het publieke IP toont GEEN admin interfaces. Ze "bestaan niet" voor de buitenwereld (403 Forbidden). Een aanvaller moet (1) op het Headscale VPN netwerk zitten, (2) Keycloak MFA kraken, en (3) service-specifieke credentials hebben.
@@ -387,7 +387,7 @@ services:
     restart: on-failure:5
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.headscale.rule=Host(`vpn.athide.nl`)"
+      - "traefik.http.routers.headscale.rule=Host(`vpn.domeinnaam.nl`)"
       - "traefik.http.routers.headscale.entrypoints=websecure"
       - "traefik.http.routers.headscale.tls.certresolver=letsencrypt"
       - "traefik.http.services.headscale.loadbalancer.server.port=8080"
@@ -402,7 +402,7 @@ networks:
 ```bash
 # Installeer Tailscale client (compatibel met Headscale)
 curl -fsSL https://tailscale.com/install.sh | sh
-tailscale up --login-server https://vpn.athide.nl
+tailscale up --login-server https://vpn.domeinnaam.nl
 ```
 
 **Na installatie:** Noteer het Tailscale IP (100.x.y.z). Dit IP wordt gebruikt in de `management-whitelist` middleware.
@@ -517,7 +517,7 @@ http:
     www-redirect:
       redirectRegex:
         regex: "^https://www\\.athide\\.nl/(.*)"
-        replacement: "https://athide.nl/${1}"
+        replacement: "https://domeinnaam.nl/${1}"
         permanent: true
 
     # === Nextcloud DAV Redirects ===
@@ -531,7 +531,7 @@ http:
 ### 2.3 Traefik Dashboard → Tailscale Only
 ```yaml
 labels:
-  - "traefik.http.routers.traefik.rule=Host(`traefik.athide.nl`)"
+  - "traefik.http.routers.traefik.rule=Host(`traefik.domeinnaam.nl`)"
   - "traefik.http.routers.traefik.middlewares=management-whitelist@file,security-headers@file"
   - "traefik.http.routers.traefik.service=api@internal"
 ```
@@ -565,10 +565,10 @@ labels:
 ```yaml
 labels:
   # Publiek: OIDC flows voor Nextcloud en andere clients
-  - "traefik.http.routers.keycloak-public.rule=Host(`auth.athide.nl`) && (PathPrefix(`/realms`) || PathPrefix(`/resources`) || PathPrefix(`/js`))"
+  - "traefik.http.routers.keycloak-public.rule=Host(`auth.domeinnaam.nl`) && (PathPrefix(`/realms`) || PathPrefix(`/resources`) || PathPrefix(`/js`))"
   - "traefik.http.routers.keycloak-public.middlewares=security-headers@file,rate-limit@file"
   # Admin console: ALLEEN via Tailscale
-  - "traefik.http.routers.keycloak-admin.rule=Host(`auth.athide.nl`) && PathPrefix(`/admin`)"
+  - "traefik.http.routers.keycloak-admin.rule=Host(`auth.domeinnaam.nl`) && PathPrefix(`/admin`)"
   - "traefik.http.routers.keycloak-admin.middlewares=management-whitelist@file,security-headers@file"
 ```
 
@@ -583,22 +583,22 @@ oauth2-proxy:
   image: quay.io/oauth2-proxy/oauth2-proxy:v7.6.0
   environment:
     OAUTH2_PROXY_PROVIDER: "keycloak-oidc"
-    OAUTH2_PROXY_OIDC_ISSUER_URL: "https://auth.athide.nl/realms/athide"
+    OAUTH2_PROXY_OIDC_ISSUER_URL: "https://auth.domeinnaam.nl/realms/athide"
     OAUTH2_PROXY_CLIENT_ID: "oauth2-proxy"
     OAUTH2_PROXY_CLIENT_SECRET_FILE: "/run/secrets/oauth2_client_secret"
     OAUTH2_PROXY_COOKIE_SECRET_FILE: "/run/secrets/oauth2_cookie_secret"
-    OAUTH2_PROXY_COOKIE_DOMAINS: ".athide.nl"  # SSO over alle subdomeinen
+    OAUTH2_PROXY_COOKIE_DOMAINS: ".domeinnaam.nl"  # SSO over alle subdomeinen
     OAUTH2_PROXY_COOKIE_SECURE: "true"
     OAUTH2_PROXY_COOKIE_HTTPONLY: "true"
     OAUTH2_PROXY_COOKIE_SAMESITE: "lax"
     OAUTH2_PROXY_REVERSE_PROXY: "true"
     OAUTH2_PROXY_EMAIL_DOMAINS: "*"            # Filtering via Keycloak rollen
-    OAUTH2_PROXY_WHITELIST_DOMAINS: ".athide.nl"
+    OAUTH2_PROXY_WHITELIST_DOMAINS: ".domeinnaam.nl"
     OAUTH2_PROXY_SET_XAUTHREQUEST: "true"
     OAUTH2_PROXY_HTTP_ADDRESS: "0.0.0.0:4180"
   labels:
     - "traefik.enable=true"
-    - "traefik.http.routers.oauth2.rule=Host(`auth.athide.nl`) && PathPrefix(`/oauth2`)"
+    - "traefik.http.routers.oauth2.rule=Host(`auth.domeinnaam.nl`) && PathPrefix(`/oauth2`)"
     - "traefik.http.routers.oauth2.entrypoints=websecure"
     - "traefik.http.routers.oauth2.tls.certresolver=letsencrypt"
     - "traefik.http.services.oauth2.loadbalancer.server.port=4180"
@@ -627,7 +627,7 @@ oauth2-proxy:
 1. Realm `athide` aanmaken
 2. MFA (TOTP) verplicht instellen
 3. OIDC clients aanmaken:
-   - `oauth2-proxy` (confidential, redirect URI: `https://auth.athide.nl/oauth2/callback`)
+   - `oauth2-proxy` (confidential, redirect URI: `https://auth.domeinnaam.nl/oauth2/callback`)
    - `nextcloud` (voor directe OIDC integratie)
 4. **RBAC:** Rol `admin_access` aanmaken in Keycloak. Alleen gebruikers met deze rol krijgen toegang tot admin panels via oauth2-proxy (`OAUTH2_PROXY_ALLOWED_ROLES=admin_access`). Dit voorkomt dat reguliere Nextcloud-gebruikers bij Ghost admin of Traefik dashboard kunnen.
 5. Brute force detection aan
@@ -658,14 +658,14 @@ oauth2-proxy:
 ```yaml
 labels:
   # Publieke website
-  - "traefik.http.routers.ghost.rule=Host(`athide.nl`)"
+  - "traefik.http.routers.ghost.rule=Host(`domeinnaam.nl`)"
   - "traefik.http.routers.ghost.middlewares=security-headers@file,rate-limit@file"
   # Admin panel: Tailscale whitelist + Keycloak forward-auth
-  - "traefik.http.routers.ghost-admin.rule=Host(`athide.nl`) && PathPrefix(`/ghost`)"
+  - "traefik.http.routers.ghost-admin.rule=Host(`domeinnaam.nl`) && PathPrefix(`/ghost`)"
   - "traefik.http.routers.ghost-admin.middlewares=management-whitelist@file,auth-keycloak@file,security-headers@file"
 ```
 
-**Subdomein:** `athide.nl` + `www.athide.nl` (redirect)
+**Subdomein:** `domeinnaam.nl` + `www.domeinnaam.nl` (redirect)
 
 **Hardening:**
 - `ghost`: no-new-privileges, cap_drop ALL, tmpfs /tmp
@@ -691,7 +691,7 @@ labels:
 - `proxy`: Traefik routing
 - `net-auth`: OIDC met Keycloak
 
-**Subdomein:** `cloud.athide.nl`
+**Subdomein:** `cloud.domeinnaam.nl`
 
 **Na deployment:**
 1. OIDC integratie met Keycloak (`user_oidc` app)
@@ -717,7 +717,7 @@ labels:
 cd /opt
 git clone https://github.com/mailcow/mailcow-dockerized
 cd mailcow-dockerized
-./generate_config.sh  # hostname: mail.athide.nl
+./generate_config.sh  # hostname: mail.domeinnaam.nl
 ```
 
 ### 6.2 Traefik Integratie
@@ -739,10 +739,10 @@ Mailcow-nginx krijgt Traefik labels + verbinding met extern `proxy` netwerk.
 # In Mailcow's nginx Traefik labels:
 labels:
   # Webmail (SOGo) - publiek
-  - "traefik.http.routers.mailcow.rule=Host(`mail.athide.nl`) && !PathPrefix(`/admin`)"
+  - "traefik.http.routers.mailcow.rule=Host(`mail.domeinnaam.nl`) && !PathPrefix(`/admin`)"
   - "traefik.http.routers.mailcow.middlewares=security-headers@file,rate-limit@file"
   # Admin UI - alleen Tailscale
-  - "traefik.http.routers.mailcow-admin.rule=Host(`mail.athide.nl`) && PathPrefix(`/admin`)"
+  - "traefik.http.routers.mailcow-admin.rule=Host(`mail.domeinnaam.nl`) && PathPrefix(`/admin`)"
   - "traefik.http.routers.mailcow-admin.middlewares=management-whitelist@file,security-headers@file"
 ```
 
@@ -758,14 +758,14 @@ Postfix, Dovecot, Rspamd, ClamAV, SOGo, MariaDB, Redis, Nginx — allemaal in Ma
 
 | Type | Naam | Waarde |
 |------|------|--------|
-| MX | `athide.nl` | `mail.athide.nl` (prio 10) |
+| MX | `domeinnaam.nl` | `mail.domeinnaam.nl` (prio 10) |
 | A | `mail` | `89.167.107.143` |
-| TXT | `athide.nl` | `v=spf1 mx a ip4:89.167.107.143 -all` |
+| TXT | `domeinnaam.nl` | `v=spf1 mx a ip4:89.167.107.143 -all` |
 | TXT | `dkim._domainkey` | *(gegenereerd door Mailcow)* |
-| TXT | `_dmarc` | `v=DMARC1; p=none; rua=mailto:dmarc@athide.nl` |
-| TXT | `_smtp._tls` | `v=TLSRPTv1; rua=mailto:tls@athide.nl` |
-| SRV | `_autodiscover._tcp` | `0 0 443 mail.athide.nl` |
-| CNAME | `autoconfig` | `mail.athide.nl` |
+| TXT | `_dmarc` | `v=DMARC1; p=none; rua=mailto:dmarc@domeinnaam.nl` |
+| TXT | `_smtp._tls` | `v=TLSRPTv1; rua=mailto:tls@domeinnaam.nl` |
+| SRV | `_autodiscover._tcp` | `0 0 443 mail.domeinnaam.nl` |
+| CNAME | `autoconfig` | `mail.domeinnaam.nl` |
 
 **DMARC progressie:** `p=none` → `p=quarantine` (week 3) → `p=reject` (maand 3)
 
@@ -978,13 +978,13 @@ Swap: 2GB safety net, `vm.swappiness=5`.
 
 | URL | Stack | Service |
 |-----|-------|---------|
-| `athide.nl` | ghost | Ghost (website) |
-| `www.athide.nl` | ghost | Redirect → athide.nl |
-| `auth.athide.nl` | keycloak | Keycloak (SSO/MFA) |
-| `cloud.athide.nl` | nextcloud | Nextcloud |
-| `mail.athide.nl` | mailcow | Mailcow (webmail/admin) |
-| `traefik.athide.nl` | traefik | Dashboard (Tailscale only) |
-| `vpn.athide.nl` | headscale | Headscale control server |
+| `domeinnaam.nl` | ghost | Ghost (website) |
+| `www.domeinnaam.nl` | ghost | Redirect → domeinnaam.nl |
+| `auth.domeinnaam.nl` | keycloak | Keycloak (SSO/MFA) |
+| `cloud.domeinnaam.nl` | nextcloud | Nextcloud |
+| `mail.domeinnaam.nl` | mailcow | Mailcow (webmail/admin) |
+| `traefik.domeinnaam.nl` | traefik | Dashboard (Tailscale only) |
+| `vpn.domeinnaam.nl` | headscale | Headscale control server |
 
 ---
 
@@ -1047,10 +1047,10 @@ Fase 11 → Validatie (SSL Labs, nmap, Incognito tests, cross-stack tests, SMTP 
 - [ ] **SMTP sinkhole test:** Vanuit Keycloak container, outbound poort 25 FAALT
 
 ### Admin Isolatie (Tailscale)
-- [ ] **Incognito test (VPN UIT):** `https://auth.athide.nl/admin` → 403 Forbidden
-- [ ] **Incognito test (VPN UIT):** `https://mail.athide.nl/admin` → 403 Forbidden
-- [ ] **Incognito test (VPN UIT):** `https://traefik.athide.nl` → 403 Forbidden
-- [ ] **Incognito test (VPN AAN):** `https://athide.nl/ghost` → Keycloak login → MFA → Ghost admin
+- [ ] **Incognito test (VPN UIT):** `https://auth.domeinnaam.nl/admin` → 403 Forbidden
+- [ ] **Incognito test (VPN UIT):** `https://mail.domeinnaam.nl/admin` → 403 Forbidden
+- [ ] **Incognito test (VPN UIT):** `https://traefik.domeinnaam.nl` → 403 Forbidden
+- [ ] **Incognito test (VPN AAN):** `https://domeinnaam.nl/ghost` → Keycloak login → MFA → Ghost admin
 - [ ] oauth2-proxy RBAC: gebruiker ZONDER `admin_access` rol → geweigerd bij Ghost admin
 
 ### Scanning & Audit
